@@ -6,100 +6,208 @@
 #include "User.h"
 #include "DialogLayer.h"
 #include "MainMenuLayer.h"
+#include "SmartRes.h"
+#include "BoardConfig.h"
+#include "StringRes.h"
+
+//BeadBoardLayer*  BeadBoardLayer::m_singleBoard = NULL;
 
 static const char s_pPathClose[] = "Images/close.png";
+static const char s_stars1[]     = "Images/stars.png";
 
 USING_NS_CC;
 USING_NS_CC_EXT;
+using namespace CocosDenshion;
+
 using namespace std;
 
-#define  LEFT_SPACE     3.0f
-#define  TOP_SPACE      4.0f
+#define  LEFT_PADDING     3.0f
+#define  TOP_PADDING      4.0f
 
-#define  TITLE_SPACE    40.0f
-#define  BUTTON_SPACE    40.0f
+#define  TITLE_SPACE    80.0f
+#define  BOTTOM_SPACE    40.0f
 
-#define  BEAD_GRID_DEFAULT_SIZE  35.0f
+#define  BOARD_X_GAP  4.f//35.0f
+#define  BOARD_Y_GAP  6.f//35.0f
+#define  BEAD_GRID_DEFAULT_SIZE  79.f//35.0f
+#define  BEAD_GRID_Y_GAP         4.f//35.0f
 
 #define  INIT_BEAD_NUM  5
 #define  EACH_STEP_BEAD_NUM  3
 
+
+void BeadBoardLayer::runInSceen(bool is_new)
+{
+    CCScene * pScene = CCScene::create();
+    CCLayer * pLayer = BeadBoardLayer::create(is_new);
+    pScene->addChild(pLayer);
+    CCDirector::sharedDirector()->replaceScene(pScene);
+}
 BeadBoardLayer::BeadBoardLayer(): m_selected(-1)
 {
     m_gridWidth = BEAD_GRID_DEFAULT_SIZE;
     m_gridHeight = BEAD_GRID_DEFAULT_SIZE;
     m_scale = 1;
 
-    m_boardStartX = LEFT_SPACE;
     m_boardStartY = 0;
+    m_closeMenu = false;
 
+#if (CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID)
+    m_adLayer = NULL ;
+#endif
+    //m_singleBoard = NULL;
 }
 BeadBoardLayer::~BeadBoardLayer()
 {
     releaseAllBeads();
     releaseNextBeads();
+    #if (CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID)
+    deinitAdMob();
+    
+    #endif
+
 }
 
 BeadBoardLayer * BeadBoardLayer::create(bool is_new)
 {
-    BeadBoardLayer * pRet = new BeadBoardLayer();
-    if (pRet && pRet->init(is_new))
+
+
+    BeadBoardLayer* board= new BeadBoardLayer();
+    if (board && board->init(is_new))
     {
-        pRet->autorelease();
+        board->autorelease();
     }
     else
     {
-        CC_SAFE_DELETE(pRet);
+        CC_SAFE_DELETE(board);
+
     }
-    return pRet;
+    return board;
 }
 
 void BeadBoardLayer::initTitle()
 {
-    CCSize size = getContentSize();
-    initNextBeads();
-    m_scoreLabel = CCLabelTTF::create("Score","Artial", 20);
-    m_scoreLabel->retain();
-    m_scoreLabel->setColor( ccc3(0, 0, 0) );
-    m_scoreLabel->setPosition( ccp(LEFT_SPACE+38, size.height-TOP_SPACE-16) );
-    //m_scoreLabel->setPosition( ccp(0, 0) );
-    addChild(m_scoreLabel);
 
-    m_highscoreLabel = CCLabelTTF::create("H:10000","Artial", 20);
+    initNextBeads();
+    m_scoreLabel = CCLabelTTF::create("Score:10000","Marker Felt", NORMAL_FONT_SIZE);
+    m_scoreLabel->retain();
+    m_scoreLabel->setColor( ccWHITE );
+    CCSprite* s = CCSprite::create("Images/button2.png");
+    m_scoreLabel->setPosition(ccp(s->getContentSize().width/2,s->getContentSize().height/2));
+    s->addChild(m_scoreLabel);
+    s->setAnchorPoint(ccp(0,0.5));
+    s->setPosition(ccp(SMART_LEFT+LEFT_PADDING,SMART_TOP-TITLE_SPACE/2));
+    addChild(s);
+
+    s = CCSprite::create("Images/button2.png");
+
+    m_highscoreLabel = CCLabelTTF::create("High:10000","Marker Felt", NORMAL_FONT_SIZE);
     m_highscoreLabel->retain();
-    m_highscoreLabel->setColor( ccc3(50, 50, 50) );
-    m_highscoreLabel->setPosition( ccp(size.width-LEFT_SPACE-40, size.height-TOP_SPACE-16) );
-    addChild(m_highscoreLabel);
+    m_highscoreLabel->setPosition(ccp(s->getContentSize().width/2,s->getContentSize().height/2));
+    m_highscoreLabel->setColor(ccWHITE );
+    s->addChild(m_highscoreLabel);
+    s->setAnchorPoint(ccp(1,0.5));
+    s->setPosition( ccp(SMART_RIGHT - 1, SMART_TOP-TITLE_SPACE/2) );
+    addChild(s);
 
     setHighScore(m_keeper.getHighScore());
 }
 
+#if (CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID)
+
+void BeadBoardLayer::checkAd()
+{
+
+    extern int s_adTouchNum;
+    extern bool s_adLastTouchChecked;
+    if(!s_adLastTouchChecked)
+    {
+        CCLog("BeadBoardLayer::checkAd s_adTouchNum %d", s_adTouchNum);
+        //deinitAdMob();
+        //initAdMob();
+        m_adLayer->init();
+
+
+        s_adLastTouchChecked = true;
+        
+        setLuckyCardLabel(User::addLuckyCard(1));
+        setWithdrawCardLabel(User::addWithdrawCard(1));
+        const char* str = StringRes::sharedStringRes()->getString(ID_STRING_GOT_CARDS_HINT);
+        DialogLayer *d = DialogLayer::create(str);
+        addChild(d);
+    }
+
+
+}
+void BeadBoardLayer::deinitAdMob()
+{
+
+    if(m_adLayer)
+    {
+        CCLOG("BeadBoardLayer::deinitAdMob");
+        //removeChild(m_adLayer,true);
+        //m_adLayer->setParent(0);
+        CC_SAFE_RELEASE_NULL(m_adLayer);
+
+        //m_adLayer = NULL;
+    }
+}
+
+void BeadBoardLayer::initAdMob()
+{
+    if(m_adLayer)return;
+    CCAdSize adsize = kCCAdSizeSmartBanner;
+    //CCSize size = CCDirector::sharedDirector()->getWinSize();
+    //CCLOG("BeadBoardLayer::initAdMob height=%f",size.height);
+    //if(size.height >= 1000)
+    //    adsize = kCCAdSizeMediumRectangle;
+
+    m_adLayer = CCAdView::create(adsize, "a151f7d321e46ec");
+#if 0
+    m_adLayer->setAlignment(kCCHorizontalAlignmentCenter, kCCVerticalAlignmentBottom);
+    m_adLayer->setVisible(true);
+
+    m_adLayer->setParent(this);
+    m_adLayer->loadAd();
+#endif
+    CCLOG("BeadBoardLayer::initAdMob end");
+
+    
+}
+#endif
+
 void BeadBoardLayer::initCardBar()
 {
-    CCScale9Sprite *backgroundButton = CCScale9Sprite::create("Images/button.png");
-    CCScale9Sprite *backgroundHighlightedButton = CCScale9Sprite::create("Images/buttonHighlighted.png");
+    //CCRect rect = VisibleRect::getVisibleRect();
+    CCScale9Sprite *backgroundButton = CCScale9Sprite::create("Images/button2.png");
+    CCScale9Sprite *backgroundHighlightedButton = CCScale9Sprite::create("Images/button2.png");
 
-    m_luckyLabel = CCLabelTTF::create("Lucky:10", "Marker Felt", 20);
+    m_luckyLabel = CCLabelTTF::create("Lucky:10", "Marker Felt", LARGE_FONT_SIZE);
 
     CCControlButton *button = CCControlButton::create(m_luckyLabel, backgroundButton);
     button->setBackgroundSpriteForState(backgroundHighlightedButton, CCControlStateHighlighted);
     button->setTitleColorForState(ccWHITE, CCControlStateHighlighted);
 
-    button->setPosition(ccp(button->getContentSize().width/2+40, 2));
+    //button->setPosition(ccp(button->getContentSize().width/2+40, 2));
+    //button->setAnchorPoint(ccp(0, 0));
+    float x = SMART_CENTER.x/2 ;
+    button->setPosition(ccp(x, m_boardStartY-40));
     addChild(button);
     button->addTargetWithActionForControlEvents(this, cccontrol_selector(BeadBoardLayer::lucky), CCControlEventTouchDown);
 
     m_luckyBtn= button;
     setLuckyCardLabel(User::getLuckyCardNum());
 
-    CCScale9Sprite *backgroundButton1 = CCScale9Sprite::create("Images/button.png");
-    CCScale9Sprite *backgroundHighlightedButton1 = CCScale9Sprite::create("Images/buttonHighlighted.png");
+    CCScale9Sprite *backgroundButton1 = CCScale9Sprite::create("Images/button2.png");
+    CCScale9Sprite *backgroundHighlightedButton1 = CCScale9Sprite::create("Images/button2.png");
 
-    m_withdrawLabel = CCLabelTTF::create("WithDraw", "Marker Felt", 20);
+    m_withdrawLabel = CCLabelTTF::create("WithDraw", "Marker Felt", LARGE_FONT_SIZE);
     button=CCControlButton::create(m_withdrawLabel, backgroundButton1);
     button->setBackgroundSpriteForState(backgroundHighlightedButton1, CCControlStateHighlighted);
     button->setTitleColorForState(ccWHITE, CCControlStateHighlighted);
-    button->setPosition(ccp(200, 2));
+    //button->setAnchorPoint(ccp(1, 0));
+    x = SMART_RIGHT/2 + SMART_CENTER.x/2 ;
+    button->setPosition(x, m_boardStartY-40);
     addChild(button);
     button->addTargetWithActionForControlEvents(this, cccontrol_selector(BeadBoardLayer::withdraw), CCControlEventTouchDown);
     m_withdrawBtn = button;
@@ -109,8 +217,9 @@ void BeadBoardLayer::initCardBar()
 void BeadBoardLayer::setLuckyCardLabel(int num)
 {
     static char card_num_str[30];
+    const char* str = StringRes::sharedStringRes()->getString(ID_STRING_LUCK_CARD);
     memset(card_num_str,0,sizeof(card_num_str));
-    sprintf(card_num_str,"Lucky:%d",num);
+    sprintf(card_num_str,"%s:%d",str,num);
     //m_luckyLabel->setString(card_num_str);
     m_luckyBtn->setTitleForState(new CCString(card_num_str), CCControlStateNormal);
 
@@ -120,7 +229,8 @@ void BeadBoardLayer::lucky(CCObject *senderz, CCControlEvent controlEvent)
     int num = User::getLuckyCardNum();
     if(num<=0)
     {
-        DialogLayer *d = DialogLayer::create("No card now!\nPlease hit the Ad to earn cards!");
+        const char* str = StringRes::sharedStringRes()->getString(ID_STRING_HIT_AD_HINT);
+        DialogLayer *d = DialogLayer::create(str);
         addChild(d);
         return;
     }
@@ -132,8 +242,9 @@ void BeadBoardLayer::lucky(CCObject *senderz, CCControlEvent controlEvent)
 void BeadBoardLayer::setWithdrawCardLabel(int num)
 {
     static char card_num_str[30];
+    const char* str = StringRes::sharedStringRes()->getString(ID_STRING_WITHDRAW_CARD);
     memset(card_num_str,0,sizeof(card_num_str));
-    sprintf(card_num_str,"Withdraw:%d",num);
+    sprintf(card_num_str,"%s:%d",str,num);
     //m_luckyLabel->setString(card_num_str);
     m_withdrawBtn->setTitleForState(new CCString(card_num_str), CCControlStateNormal);
 
@@ -143,7 +254,8 @@ void BeadBoardLayer::withdraw(CCObject *senderz, CCControlEvent controlEvent)
     int num = User::getWithdrawCardNum();
     if(num<=0)
     {
-        DialogLayer *d = DialogLayer::create("No card now!\nPlease hit the Ad to earn cards!");
+        const char* str = StringRes::sharedStringRes()->getString(ID_STRING_HIT_AD_HINT);
+        DialogLayer *d = DialogLayer::create(str);
         addChild(d);
         return;
     }
@@ -151,70 +263,75 @@ void BeadBoardLayer::withdraw(CCObject *senderz, CCControlEvent controlEvent)
     {
         const BoardData data = m_keeper.getCurBoard();
         restoreBoard(data);
-        User::deleteWithdrawCard(1);
+        num=User::deleteWithdrawCard(1);
         setWithdrawCardLabel(num);
     }
     else
     {
-        DialogLayer *d = DialogLayer::create("Can't withdraw anymore!");
+        const char* str = StringRes::sharedStringRes()->getString(ID_STRING_CANT_WITHDRAW_HINT);
+        DialogLayer *d = DialogLayer::create(str);
         addChild(d);
     }
 }
 
-void BeadBoardLayer::initBackKey()
-{
-    #if (CC_TARGET_PLATFORM == CC_PLATFORM_LINUX)
-        CCMenuItemImage *pCloseItem = CCMenuItemImage::create(s_pPathClose, s_pPathClose, this, menu_selector(BeadBoardLayer::backToMainMenu) );
-        CCMenu* pMenu =CCMenu::create(pCloseItem, NULL);
-        CCSize size = getContentSize();
-        pMenu->setPosition( CCPointZero );
-        pCloseItem->setPosition(ccp( size.width - 20,0));
 
-        addChild(pMenu);
-
-    #elif (CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID)
-        setKeypadEnabled(true);
-    #endif
-}
 bool BeadBoardLayer::init(bool is_new)
 {
 
+    BaseLayer::init();
 //init beads array
     memset(m_beads,0,sizeof(Bead*)*BEADBOARD_SIZE*BEADBOARD_SIZE);
     memset(m_nextBeads,0,sizeof(Bead*)*EACH_STEP_BEAD_NUM);
 
-//init backgroud
-    CCSprite* background = CCSprite::create("Images/board.png");
+    m_background = CCSprite::create("Images/board.png");
 
-    CCSize size = CCDirector::sharedDirector()->getWinSize();
-    CCSize bg_size = background->getContentSize();
-    setContentSize(CCSize(bg_size.width,bg_size.height+TITLE_SPACE + BUTTON_SPACE) );
-    if(size.width > bg_size.width)
-    {
-        m_scale = size.width/bg_size.width;
-        //background->setScale(m_scale);
-        m_gridWidth = BEAD_GRID_DEFAULT_SIZE*m_scale;
-        m_gridHeight = BEAD_GRID_DEFAULT_SIZE*m_scale;
-    }
-    background->setPosition(ccp(bg_size.width/2,BUTTON_SPACE+bg_size.height/2));
-    addChild(background);
+    m_background->setAnchorPoint(ccp(0,1));
+    m_background->setPosition(ccp(SMART_LEFT,SMART_TOP - TITLE_SPACE));
+    m_boardStartY = SMART_TOP - m_background->getContentSize().height - TITLE_SPACE;
+    addChild(m_background);
 
-    CCLog("BeadBoardLayer::init m_boardStartY = (%f)",m_boardStartY);
+    CCLog("BeadBoardLayer::init m_boardStartY = (%f),SMART_TOP=%f",m_boardStartY,SMART_TOP);
 
-    m_keeper = BoardKeeper();
     initTitle();
 
     initCardBar();
 
-    initBackKey();
+    #if (CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID)
+    initAdMob();
+    this->schedule( schedule_selector(BeadBoardLayer::checkAd), 1.0 );
+    #endif
 
-    resetBoard();
-    m_keeper.push(m_beads,0);
+    m_keeper.init(is_new);
+    if(is_new || !m_keeper.hasValidStore())
+    {
+        resetBoard();
+        m_keeper.push(m_beads,0);
+    }
+    else
+    {
+        restoreBoard(m_keeper.getCurBoard());
+    }
 
     setTouchEnabled(true);
 
+
     return true;
 
+}
+void BeadBoardLayer::onEnter()
+{
+    if(User::isAudioOn())
+        SimpleAudioEngine::sharedEngine()->playBackgroundMusic("game.mp3", true);
+
+    CCLayer::onEnter();
+}
+
+void BeadBoardLayer::onExit()
+{
+    if(User::isAudioOn())
+        SimpleAudioEngine::sharedEngine()->stopBackgroundMusic(false);
+
+    CCLayer::onExit();
 }
 
 void BeadBoardLayer::registerWithTouchDispatcher()
@@ -223,24 +340,6 @@ void BeadBoardLayer::registerWithTouchDispatcher()
 }
 
 
-void BeadBoardLayer::backToMainMenu(CCObject *pSender)
-{
-    MainMenuLayer::runInSceen();
-}
-
-
-#if (CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID)
-void BeadBoardLayer::keyBackClicked()
-{
-    CCLOG("keyBackClicked");
-    backToMainMenu();
-}
-
-void BeadBoardLayer::keyMenuClicked()
-{
-    CCLOG("keyMenuClicked");
-}
-#endif
 
 void BeadBoardLayer::ccTouchesEnded(CCSet* touches, CCEvent* event)
 {
@@ -248,10 +347,9 @@ void BeadBoardLayer::ccTouchesEnded(CCSet* touches, CCEvent* event)
     CCTouch* touch = (CCTouch*)( touches->anyObject() );
     //CCPoint location = touch->getLocation();
     CCPoint location = convertTouchToNodeSpace(touch);
-    CCLog("BeadBoardLayer::ccTouchesEnded touch x:%f, y:%f", location.x, location.y);
+    CCLOG("BeadBoardLayer::ccTouchesEnded touch x:%f, y:%f", location.x, location.y);
 
     processTouch(location);
-    //CocosDenshion::SimpleAudioEngine::sharedEngine()->playEffect("selected.wav");
 }
 
 bool BeadBoardLayer::isValidIndex(int idx)
@@ -261,17 +359,21 @@ bool BeadBoardLayer::isValidIndex(int idx)
 
 void BeadBoardLayer::setScore(int score)
 {
+
     static char score_str[30];
+    const char* str = StringRes::sharedStringRes()->getString(ID_STRING_SCORE);
     memset(score_str,0,sizeof(score_str));
-    sprintf(score_str,"Score:%d",score);
+    sprintf(score_str,"%s:%d",str,score);
     m_scoreLabel->setString(score_str);
 
 }
 void BeadBoardLayer::setHighScore(int highscore)
 {
+
     static char score_str[30];
+    const char* str = StringRes::sharedStringRes()->getString(ID_STRING_HIGH_SCORE);
     memset(score_str,0,sizeof(score_str));
-    sprintf(score_str,"H:%d",highscore);
+    sprintf(score_str,"%s:%d",str,highscore);
     m_highscoreLabel->setString(score_str);
 }
 
@@ -285,12 +387,13 @@ bool BeadBoardLayer::getGridPosition(int index, int* x,int* y)
 
 bool BeadBoardLayer::getGridPosition(const CCPoint& point,int* x, int* y)
 {
-    float p_x = point.x;
-    float p_y = point.y - BUTTON_SPACE;
-    CCSize bg_size = getContentSize();
+    float p_x = point.x - BOARD_X_GAP;
+    CCSize bg_size = m_background->getContentSize();
+    float p_y = point.y - (m_boardStartY) - BOARD_Y_GAP;
+    
     CCLog("getGridPosition m_gridWidth=%f,m_gridHeight=%f", m_gridWidth,m_gridHeight);
     CCLog("getGridPosition p_x=%f,p_y=%f", p_x,p_y);
-    CCLog("getGridPosition bg_size.width=%f,bg_size.height=%f", bg_size.width,bg_size.height);
+    //CCLog("getGridPosition bg_size.width=%f,bg_size.height=%f", bg_size.width,bg_size.height);
     CC_RETURN_VAL_IF_FAIL((p_x>=0 && p_x <= bg_size.width),false);
     CC_RETURN_VAL_IF_FAIL((p_y>=0 && p_y<=bg_size.height),false);
     *x = p_x / m_gridWidth;
@@ -313,10 +416,9 @@ bool BeadBoardLayer::getGridIndex(const CCPoint& point,int* index)
 bool BeadBoardLayer::getCoordinate(int x,int y,CCPoint* point)
 {
     CCAssert(x < BEADBOARD_SIZE && y < BEADBOARD_SIZE,"getCoordinate wrong xy");
-
-    float p_x = x*m_gridWidth + LEFT_SPACE + m_gridWidth/2;
-    float p_y = y*m_gridHeight + TOP_SPACE + m_gridHeight/2 + BUTTON_SPACE;
-    CCLog("getCoordinate p_x=%f,p_y=%f",p_x,p_y);
+    float p_x = x*m_gridWidth  + m_gridWidth/2 + BOARD_X_GAP;
+    float p_y = y*m_gridHeight + m_boardStartY + BOARD_Y_GAP + m_gridHeight/2 ;
+    //CCLog("getCoordinate p_x=%f,p_y=%f",p_x,p_y);
     point->setPoint(p_x,p_y);
     return true;
 }
@@ -325,7 +427,7 @@ bool BeadBoardLayer::getCoordinate(int index,CCPoint* point)
     CCAssert(index < BEADBOARD_SIZE*BEADBOARD_SIZE,"getCoordinate wrong index");
     int x,y;
     CC_RETURN_VAL_IF_FAIL(getGridPosition(index,&x,&y),false);
-    CCLog("getCoordinate idx=%d,x=%d,y=%d",index,x,y);
+    //CCLog("getCoordinate idx=%d,x=%d,y=%d",index,x,y);
     return getCoordinate(x,y,point);
 }
 
@@ -384,7 +486,7 @@ void BeadBoardLayer::releaseAllBeads()
 void BeadBoardLayer::insertBead(int idx,Bead* bead)
 {
     CCAssert(bead,"insertBead NULL");
-    CCLog("insertBead idx=%d",idx);
+    //CCLog("insertBead idx=%d",idx);
     CCPoint point;
     if(!getCoordinate(idx,&point))
         CCAssert(false,"the coordinate is wrong");
@@ -396,7 +498,7 @@ void BeadBoardLayer::insertBead(int idx,Bead* bead)
 
 void BeadBoardLayer::insertBead(int idx,BeadColor color)
 {
-    CCLog("insertBead color=%d",(int)color);
+    //CCLog("insertBead color=%d",(int)color);
     Bead* bead= Bead::create(color);
     insertBead(idx,bead);
 }
@@ -421,7 +523,7 @@ bool BeadBoardLayer::addRandomBeads(int num)
     {
         int idx = rand() % size;
         int real_idx = list->at(idx);
-        CCLog("addRandomBeads idx=%d,real_idx=%d",idx,real_idx);
+        //CCLog("addRandomBeads idx=%d,real_idx=%d",idx,real_idx);
         if(m_beads[real_idx] != NULL)
             continue;
         //CCAssert(m_beads->data[list[idx]]==NULL,"should be empyt slot");
@@ -460,11 +562,13 @@ bool BeadBoardLayer::addRandBeadWithAction(CCArray* array,int prepare_index)
 void BeadBoardLayer::startAddRandomBeadsWithAction(CCArray* array,int num)
 {
     //check if lose the game
-    if(getEmptyNum() < EACH_STEP_BEAD_NUM)
+    #if 0
+    if(checkIsGameOver())
     {
         gameOver();
         return;
     }
+    #endif
     int *p_num = (int*)malloc(sizeof(int));
     *p_num = num;
     CCFiniteTimeAction*  action = CCSequence::create(
@@ -491,24 +595,39 @@ void BeadBoardLayer::startAddRandomBeadsWithActionCallback(CCNode* pSender,void*
         m_keeper.push(m_beads,m_keeper.getCurScore());
 
         prepareNextBeads();
-        return;
+        if(checkIsGameOver())
+        {
+            gameOver();
+            array->removeAllObjects();
+            CC_SAFE_RELEASE(array);
+            return;
+        }
     }
-    CCFiniteTimeAction*  action = CCSequence::create(
-        CCDelayTime::create(0.1),
-        CCCallFuncND::create( this, callfuncND_selector(BeadBoardLayer::startAddRandomBeadsWithActionCallback),num),
-        NULL);
-    array->addObject(action);
+    else
+    {
+        CCFiniteTimeAction*  action = CCSequence::create(
+            CCDelayTime::create(0.1),
+            CCCallFuncND::create( this, callfuncND_selector(BeadBoardLayer::startAddRandomBeadsWithActionCallback),num),
+            NULL);
+        array->addObject(action);
+    }
     if(array->count() > 0 )
     {
         CCSequence *seq = CCSequence::create(array);
         runAction(seq);
     }
+    else
+    {
+        CC_SAFE_RELEASE(array);
+    }
 }
 
 void BeadBoardLayer::initNextBeads()
 {
-    CCSize size = getContentSize();
-    float x_start=size.width/2;
+    //CCPoint top = VisibleRect::leftTop();
+    //CCSize size = getContentSize();
+    float x_start=SMART_CENTER.x;//size.width/2;
+    CCLOG("initNextBeads x=%f",x_start);
     for(int i=0; i<EACH_STEP_BEAD_NUM;i++)
     {
         m_nextBeads[i]= Bead::create();
@@ -518,7 +637,7 @@ void BeadBoardLayer::initNextBeads()
 
         CCSize itself = m_nextBeads[i]->getContentSize();
 
-        m_nextBeads[i]->setPosition(ccp(x_start+(i-1)*itself.width+2, size.height-itself.height/2-TOP_SPACE));
+        m_nextBeads[i]->setPosition(ccp(x_start+(i-1)*itself.width+2, SMART_TOP  - TITLE_SPACE/2));
         addChild(m_nextBeads[i]);
 
     }
@@ -541,7 +660,7 @@ void BeadBoardLayer::prepareNextBeads()
     for(int i=0; i<EACH_STEP_BEAD_NUM;i++)
     {
         m_nextBeads[i]->setRandColor();
-        CCLog("prepareNextBeads idx=%d color=%d",i,m_nextBeads[i]->getBeadColor());
+        //CCLog("prepareNextBeads idx=%d color=%d",i,m_nextBeads[i]->getBeadColor());
     }
 }
 
@@ -556,7 +675,7 @@ void BeadBoardLayer::resetBoard()
 void BeadBoardLayer::restoreBoard(const BoardData& data)
 {
     stopSelectedAnim();
-    m_selected = -1;
+    //m_selected = -1;
     for(int i=0; i<BEADBOARD_SIZE*BEADBOARD_SIZE;i++)
     {
         releaseBead(i);
@@ -566,9 +685,8 @@ void BeadBoardLayer::restoreBoard(const BoardData& data)
         }
     }
     setScore(data.m_score);
-
-
 }
+
 void BeadBoardLayer::stopSelectedAnim()
 {
     if(isValidIndex(m_selected))
@@ -577,11 +695,16 @@ void BeadBoardLayer::stopSelectedAnim()
         CCAssert(m_beads[m_selected],"stopSelectedAnim selected null");
         m_beads[m_selected]->stopAllActions();
         m_beads[m_selected]->setScale(1.0f);
+        m_selected = -1;
     }
 }
+
 void BeadBoardLayer::processTouch(const CCPoint& location)
 {
+    
+
     int index= 0;
+
     CC_RETURN_IF_FAIL(getGridIndex(location,&index));
     CCLog("BeadBoardLayer::touch index %d", index);
 
@@ -604,6 +727,12 @@ void BeadBoardLayer::processTouch(const CCPoint& location)
                     startAddRandomBeadsWithAction(array,EACH_STEP_BEAD_NUM);
                 }
             }
+            else
+            {
+                if(User::isAudioOn())
+                    SimpleAudioEngine::sharedEngine()->playEffect("error.wav",false);
+            }
+
 
             if(array->count() > 0 )
             {
@@ -621,6 +750,7 @@ bool BeadBoardLayer::moveBeadWithAction(int from_index, int to_index,CCArray *ar
     vector<class Point> path;
     int x;
     int y;
+    int count= 0;
     CC_RETURN_VAL_IF_FAIL( getGridPosition( from_index, &x,&y), false);
     Point from(x,y);
     CC_RETURN_VAL_IF_FAIL( getGridPosition( to_index, &x,&y), false);
@@ -628,7 +758,7 @@ bool BeadBoardLayer::moveBeadWithAction(int from_index, int to_index,CCArray *ar
     if(!Arithmetic::calcPath(m_beads,BEADBOARD_SIZE,BEADBOARD_SIZE,from,target,path))
         return false;
 
-    stopSelectedAnim();
+    
     for (std::vector<class Point>::iterator it = path.begin() ; it != path.end(); ++it)
     {
         Point p = *it;
@@ -639,14 +769,15 @@ bool BeadBoardLayer::moveBeadWithAction(int from_index, int to_index,CCArray *ar
             CCLog("moveBead CCPoint x=%f,%f", point.x,point.y);
             CCActionInterval*  actionTo = CCMoveTo::create(0.1, point);
             array->addObject(actionTo);
+            count++;
         }
     }
     CCLog("moveBead array->count() =%d", array->count());
-    CC_RETURN_VAL_IF_FAIL( array->count() > 0 ,false);
-
+    CC_RETURN_VAL_IF_FAIL( count > 0 ,false);
+    stopSelectedAnim();
     m_beads[to_index] = m_beads[from_index];
     m_beads[from_index] = NULL;
-    m_selected = -1;
+    //m_selected = -1;
     return true;
 
 }
@@ -658,7 +789,7 @@ void BeadBoardLayer::selectBead(int index)
     if(index == -1 && isValidIndex(m_selected))
     {
         stopSelectedAnim();
-        m_selected = -1;
+        //m_selected = -1;
         return;
     }
     if(m_selected==index) return;
@@ -666,7 +797,8 @@ void BeadBoardLayer::selectBead(int index)
     m_selected = index;
     CCActionInterval*  actionTo = CCScaleBy::create(0.5f, 0.7f);
     m_beads[index]->runAction(CCRepeatForever::create(CCSequence::create( actionTo, actionTo->reverse(), NULL)));
-
+    //test
+    //m_adLayer->autoHit();
 }
 
 
@@ -753,7 +885,15 @@ bool BeadBoardLayer::scanWithAction(int index,CCArray* array,bool addScore)
     if(score == -1) score = 0;
     if(addScore)
     {
-        score += Arithmetic::calcScore(h_path.size(),v_path.size(),ls_path.size(),rs_path.size());
+        int newScore = Arithmetic::calcScore(h_path.size(),v_path.size(),ls_path.size(),rs_path.size());
+        if((score/500)<((score+newScore)/500))
+        {
+            CCFiniteTimeAction*  action = CCSequence::create(
+                CCCallFuncN::create( this, callfuncN_selector(BeadBoardLayer::congratulate)),
+                NULL);
+            array->addObject(action);
+        }
+        score += newScore;
     }
     m_keeper.push(score);
     return true;
@@ -778,18 +918,34 @@ void BeadBoardLayer::delayDeleteBeadsCallback(CCNode* pSender,void* data)
     m_keeper.setBoardData(m_beads);
 }
 
+bool BeadBoardLayer::checkIsGameOver()
+{
+    return (getEmptyNum() < EACH_STEP_BEAD_NUM);
+}
+
 void BeadBoardLayer::gameOver()
 {
+    CCParticleSystem*    emitter  = CCParticleExplosion::create();
+    m_background->addChild(emitter, 10);
+
+    emitter->setTexture( CCTextureCache::sharedTextureCache()->addImage(s_stars1) );
+    emitter->setPosition( SMART_CENTER );
+    emitter->setAutoRemoveOnFinish(true);
+    emitter->setDuration(4);
+
+    DialogLayer *d = DialogLayer::create("Game Over!");
+    addChild(d);
+}
+
+void BeadBoardLayer::congratulate(CCNode* pSender)
+{
+    CCParticleSystem*    emitter = CCParticleFireworks::create();
+    m_background->addChild(emitter, 10);
+
+    emitter->setTexture( CCTextureCache::sharedTextureCache()->addImage(s_stars1) );
+    //CCSize s = CCDirector::sharedDirector()->getWinSize();
+    emitter->setPosition( SMART_CENTER );
+    emitter->setAutoRemoveOnFinish(true);
+    emitter->setDuration(4);
 
 }
-
-void BeadBoardLayer::pushBoard()
-{
-    //m_keeper.push(m_beads,score);
-}
-#if 1
-void BeadBoardLayer::popBoard()
-{
-    //m_keeper.push(m_beads,score);
-}
-#endif

@@ -1,11 +1,11 @@
 #ifndef _MainMenuLayer_H_
 #define _MainMenuLayer_H_
-
+#include "BaseLayer.h"
 #include "cocos2d.h"
 
 USING_NS_CC;
 
-class MainMenuLayer : public CCLayer
+class MainMenuLayer : public BaseMenuLayer
 {
 public:
     static void runInSceen();
@@ -13,27 +13,22 @@ public:
     MainMenuLayer();
     ~MainMenuLayer();
 
-    virtual bool init();
-
     CREATE_FUNC(MainMenuLayer);
+    
+    #if (CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID)
+    void keyBackClicked();
+    #endif
 
-    //void menuCallback(CCObject * pSender);
-    //virtual void ccTouchesBegan(CCSet *pTouches, CCEvent *pEvent);
-    //virtual void ccTouchesMoved(CCSet *pTouches, CCEvent *pEvent);
+protected:
+    CCArray* prepareMenuList();
 
 private:
-    void initMenuList();
-    void addMenuItem(CCArray* pArrayOfItems,std::string name,SEL_MenuHandler selector);
-
     void newGame(CCObject *pSender);
     void continueGame(CCObject *pSender);
+    void setting(CCObject *pSender);
+    void gameRuler(CCObject *pSender);
+    void close(CCObject * pSender);
 
-    void closeCallback(CCObject * pSender);
-
-
-private:
-
-    CCMenu* m_pItemMenu;
 };
 
 #endif

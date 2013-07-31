@@ -10,6 +10,8 @@ SOURCES = ../Classes/MainMenuLayer.cpp \
 	../Classes/BoardKeeper.cpp \
 	../Classes/User.cpp \
 	../Classes/DialogLayer.cpp \
+	../Classes/SettingLayer.cpp \
+	../Classes/GameRulerLayer.cpp \
 	main.cpp
 
 SHAREDLIBS = -lcocos2d -lcocosdenshion -lcurl

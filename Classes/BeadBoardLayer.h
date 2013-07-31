@@ -7,31 +7,34 @@
 #include "Bead.h"
 #include "BoardKeeper.h"
 #include "BoardConfig.h"
+#include "BaseLayer.h"
 
+#if (CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID)
+#include "CCAdView.h"
+#endif
 
 USING_NS_CC;
 USING_NS_CC_EXT;
 using namespace std;
 
-class BeadBoardLayer : public cocos2d::CCLayer
+class BeadBoardLayer : public BaseLayer//cocos2d::CCLayer
 {
 public:
-    BeadBoardLayer();
+    
     ~BeadBoardLayer();
 
+    //static BeadBoardLayer* getSingleBoard();
 
+    static void runInSceen(bool is_new);
+    
     static BeadBoardLayer * create(bool is_new);
-    //CREATE_FUNC(BeadBoardLayer);
+
+    void onEnter();
+    void onExit();
 
     void registerWithTouchDispatcher();
 
     void ccTouchesEnded(CCSet* touches, CCEvent* event);
-
-#if (CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID)
-    void keyBackClicked();
-
-    void keyMenuClicked();
-#endif
 
     void insertRandBead(int idx);
     void insertBead(int idx,BeadColor color);
@@ -55,8 +58,12 @@ public:
     CC_SYNTHESIZE_READONLY(cocos2d::CCLabelTTF*, m_scoreLabel, ScoreLabel);
     CC_SYNTHESIZE_READONLY(cocos2d::CCLabelTTF*, m_highscoreLabel, HighScoreLabel);
 
+    void setLuckyCardLabel(int score);
+    void setWithdrawCardLabel(int num);
+
 private:
 
+    BeadBoardLayer();
 
     bool getGridPosition(int index, int* x,int* y);
 
@@ -78,9 +85,12 @@ private:
 
     void initCardBar();
 
-    void initBackKey();
-
-    void backToMainMenu(CCObject *pSender);
+    #if (CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID)
+    void initAdMob();
+    void deinitAdMob();
+    void checkAd();
+    #endif
+    
 
     vector<int>* getEmpytGridList();
 
@@ -110,6 +120,8 @@ private:
 
     void processTouch(const CCPoint& location);
 
+    bool checkIsGameOver();
+
     void gameOver();
 
     //void lucky(CCObject *pSender);
@@ -117,21 +129,22 @@ private:
 
     void withdraw(CCObject *senderz, CCControlEvent controlEvent);
 
-    void setLuckyCardLabel(int score);
-    void setWithdrawCardLabel(int num);
+    
 
 
-    void pushBoard();
+    void congratulate(CCNode* pSender);
 
-    void popBoard();
 
 private:
+
+    CCSprite*       m_background;
+    float           m_boardStartY;
+
     float           m_gridWidth;
     float           m_gridHeight;
     float           m_scale;
 
-    float           m_boardStartX;
-    float           m_boardStartY;
+    
 
     Bead*           m_nextBeads[EACH_STEP_BEAD_NUM];
 
@@ -146,7 +159,11 @@ private:
     CCControlButton*     m_luckyBtn;
     CCControlButton*     m_withdrawBtn;
 
+#if (CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID)
+    CCAdView*       m_adLayer;
+#endif
 
+    //static BeadBoardLayer*  m_singleBoard;
 
 
 };

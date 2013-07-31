@@ -25,10 +25,7 @@ public:
 
 
 private:
-
-
-
-private:
+    void goBack(CCObject *pSender);
 
 };
 

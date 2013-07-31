@@ -1,7 +1,5 @@
 #include "Bead.h"
-
-
-
+#include "User.h"
 
 
 Bead::Bead(BeadColor color): m_color(color)
@@ -30,13 +28,17 @@ Bead * Bead::create(BeadColor color)
 
 Bead * Bead::create()
 {
-    BeadColor color = static_cast<BeadColor>(rand()%static_cast<int>(BeadColorNum));
+    int num = User::getBeadNum();
+    BeadColor color = static_cast<BeadColor>(rand()%num);
+    //BeadColor color = static_cast<BeadColor>(rand()%static_cast<int>(BeadColorNum));
     return Bead::create(color);
 }
 
 void Bead::setRandColor()
 {
-    BeadColor color = static_cast<BeadColor>(rand()%static_cast<int>(BeadColorNum));
+    int num = User::getBeadNum();
+    BeadColor color = static_cast<BeadColor>(rand()%num);
+    //BeadColor color = static_cast<BeadColor>(rand()%static_cast<int>(BeadColorNum));
     setBeadColor(color);
 }
 
@@ -61,6 +63,10 @@ const char* Bead::getIconPath()
             return "Images/bead_4.png";
         case BeadColor5:
             return "Images/bead_5.png";
+        case BeadColor6:
+            return "Images/bead_6.png";
+        case BeadColor7:
+            return "Images/bead_7.png";
         case BeadColorNum:
             CCAssert(false, "bead color is not right");
             break;
@@ -69,12 +75,3 @@ const char* Bead::getIconPath()
     CCAssert(false, "bead color is not right");
     return NULL;
 }
-
-#if 0
-bool Bead::isSamePosition(const Bead* other)
-{
-    CC_RETURN_VAL_IF_FAIL(other,false);
-    CC_RETURN_VAL_IF(this == other,true);
-    return other->m_x == m_x && other->m_y == m_y;
-}
-#endif

@@ -1,4 +1,6 @@
 #include "BoardKeeper.h"
+#include "User.h"
+
 
 using namespace std;
 
@@ -28,10 +30,150 @@ bool BoardData::isValid()
 
 }
 
-BoardKeeper::BoardKeeper():m_index(-1)
+int BoardStore::getHighScore()
 {
-    m_hightScore = CCUserDefault::sharedUserDefault()->getIntegerForKey("highscore", 0);
+    return User::getHighScore();
+    //return CCUserDefault::sharedUserDefault()->getIntegerForKey("highscore", 0);
+
+}
+
+void BoardStore::storeHighScore(int score)
+{
+    CCAssert(score>=0,"highscore should >= 0");
+    #if 0
+    CCUserDefault::sharedUserDefault()->setIntegerForKey("highscore", score);
+    #endif
+
+    User::setHighScore(score);
+}
+
+
+int BoardStore::getIndex()
+{
+    return CCUserDefault::sharedUserDefault()->getIntegerForKey("index", -1);
+}
+
+void BoardStore::storeIndex(int index)
+{
+    CCUserDefault::sharedUserDefault()->setIntegerForKey("index", index);
+}
+
+bool BoardStore::hasValidStore()
+{
+    CCLOG("BoardStore::hasValidStore index=%d",BoardStore::getIndex());
+    return (BoardStore::getIndex()>=0);
+}
+bool BoardStore::store(int index, BoardData& data)
+{
+    char key[10];
+    static char value[200];
+    //std::string value;
+    sprintf(key,"board%d",index);
+    if(!data.isValid())
+    {
+        strcpy(value,"");
+    }
+    else
+    {
+        char tmp[4];
+        memset(tmp,0, sizeof(tmp));
+        memset(value,0, sizeof(value));
+        int offset = 0;
+
+        for(int i=0;i<BEADBOARD_SIZE*BEADBOARD_SIZE;i++)
+        {
+            int color = (int)data.m_beads[i];
+            sprintf(value+offset,"%d",color);
+            if(color==-1)
+                offset+=2;
+            else
+                offset++;
+        }
+        sprintf(value+offset,"%d",data.m_score);
+        CCLOG("BoardStore::store value=%s",value);
+    }
+    CCUserDefault::sharedUserDefault()->setStringForKey(key, value);
+    return true;
+
+}
+
+bool BoardStore::restore(int index,BoardData& data)
+{
+    char key[10];
+    sprintf(key,"board%d",index);
+    std::string value = CCUserDefault::sharedUserDefault()->getStringForKey(key);
+    if(value == "")
+    {
+        data.reset();
+    }
+    else
+    {
+        const char* str = value.c_str();
+        size_t len = value.length();
+        char tmp[4];
+        memset(tmp,0, sizeof(tmp));
+        CCLOG("BoardStore::restore idx=%d str=%s",index,str);
+        CCAssert(len>BEADBOARD_SIZE*BEADBOARD_SIZE,"wrong length");
+
+        int offset=0;
+        for(int i=0;i<BEADBOARD_SIZE*BEADBOARD_SIZE;i++)
+        {
+            if(str[offset]=='-')
+            {
+                tmp[0]=str[offset++];
+                tmp[1]=str[offset++];
+            }
+            else
+            {
+                tmp[0]=str[offset++];
+                tmp[1]='\0';
+            }
+            data.m_beads[i]=atoi(tmp);
+            CCLOG("BoardStore::restore i=%d color=%d",i,atoi(tmp));
+        }
+        data.m_score=atoi(str+offset);
+
+    }
+
+    return true;
+}
+
+void BoardStore::invalid(int index)
+{
+    char key[10];
+    sprintf(key,"board%d",index);
+    CCUserDefault::sharedUserDefault()->setStringForKey(key, "");
+}
+void BoardStore::invalidAll()
+{
+    BoardStore::storeIndex(-1);
+    char key[10];
+    for(int i=0;i<MAX_STORE_BOARD_NUM;i++)
+    {
+        sprintf(key,"board%d",i);
+        CCUserDefault::sharedUserDefault()->setStringForKey(key, "");
+    }
+}
+
+BoardKeeper::BoardKeeper()
+{
+    //m_hightScore = BoardStore::getHighScore();
     reset();
+    
+}
+
+void BoardKeeper::init(bool is_new)
+{
+    if(is_new || !hasValidStore())
+    {
+        CCLOG("BoardKeeper::init new");
+        BoardStore::invalidAll();
+    }
+    else
+    {
+        CCLOG("BoardKeeper::init continues");
+        restoreAll();  
+    }
 }
 
 void BoardKeeper::nextIndex()
@@ -77,11 +219,11 @@ bool BoardKeeper::push(Bead** board,int score)
 {
     //CCAssert(m_index>=0&&m_index<MAX_STORE_BOARD_NUM,"wrong index");
     nextIndex();
-    CCLOGERROR("BoardKeeper::push m_index=%d\n",m_index);
+    CCLOG("BoardKeeper::push m_index=%d\n",m_index);
     m_data[m_index].reset();
     m_data[m_index].m_score = score;
     setBoardData(board);
-    if(score>m_hightScore)
+    if(score>getHighScore())
     {
         storeHighScore(score);
     }
@@ -108,6 +250,7 @@ bool BoardKeeper::setBoardData(Bead** board)
 
         }
     }
+    saveContext();
     return true;
 }
 bool BoardKeeper::pop()
@@ -116,9 +259,10 @@ bool BoardKeeper::pop()
     //TODO: need think about how to restore the highscore
     if(isPrevValid())
     {
-        m_data[m_index].reset();
+        invalidCurrent();
         prevIndex();
-        CCLOGERROR("BoardKeeper::pop m_index=%d",m_index);
+        CCLOG("BoardKeeper::pop m_index=%d",m_index);
+        storeCurIndex();
         return true;
     }
     return false;
@@ -126,7 +270,9 @@ bool BoardKeeper::pop()
 }
 int BoardKeeper::getHighScore()
 {
-    return m_hightScore;
+
+    return BoardStore::getHighScore();
+
 }
 const BoardData& BoardKeeper::getCurBoard()
 {
@@ -138,8 +284,8 @@ const BoardData& BoardKeeper::getCurBoard()
 
 void BoardKeeper::storeHighScore(int score)
 {
-    m_hightScore=score;
-    CCUserDefault::sharedUserDefault()->setIntegerForKey("highscore", m_hightScore);
+    //m_hightScore=score;
+    BoardStore::storeHighScore(score);
 }
 
 
@@ -149,64 +295,45 @@ int  BoardKeeper::getCurScore()
     return m_data[m_index].m_score;
 }
 
+void BoardKeeper::saveContext()
+{
+    if(isCurValid())
+    {
+        storeCurIndex();
+        BoardStore::store(m_index,m_data[m_index]);
+    }
+}
+void BoardKeeper::invalidCurrent()
+{
+    m_data[m_index].reset();
+    BoardStore::invalid(m_index);
+}
+
 void BoardKeeper::storeCurIndex()
 {
-    CCUserDefault::sharedUserDefault()->setIntegerForKey("index", m_index);
+    CCLOG("BoardKeeper::storeCurIndex m_index=%d",m_index);
+    BoardStore::storeIndex( m_index);
 }
 
 void BoardKeeper::restoreCurIndex()
 {
-    CCUserDefault::sharedUserDefault()->getIntegerForKey("index", -1);
+    m_index=BoardStore::getIndex();
+    CCLOG("BoardKeeper::restoreCurIndex m_index=%d",m_index);
+}
+
+bool BoardKeeper::hasValidStore()
+{
+    return BoardStore::hasValidStore();
 }
 
 bool BoardKeeper::store(int index)
 {
-    char key[10];
-    std::string value;
-    sprintf(key,"board%d",index);
-    if(!m_data[index].isValid())
-    {
-        value = "";
-    }
-    else
-    {
-        stringstream ss;
-        ss<<m_data[index].m_score;
-        for(int i=0;i<BEADBOARD_SIZE*BEADBOARD_SIZE;i++)
-            ss<<m_data[index].m_beads[i];
-        value = ss.str();
-    }
-    CCUserDefault::sharedUserDefault()->setStringForKey(key, value);
-    return true;
-
+    return BoardStore::store(index,m_data[index]);
 }
 
 bool BoardKeeper::restore(int index)
 {
-    char key[10];
-    sprintf(key,"board%d",index);
-    std::string value = CCUserDefault::sharedUserDefault()->getStringForKey(key);
-    if(value == "")
-    {
-        m_data[index].reset();
-    }
-    else
-    {
-        const char* str = value.c_str();
-        size_t len = value.length();
-        char tmp[4];
-        memset(tmp,0, sizeof(tmp));
-        CCAssert(len==BEADBOARD_SIZE*BEADBOARD_SIZE+1,"wrong length");
-        tmp[0]=str[0];
-        m_data[index].m_score=atoi(tmp);
-        for(int i=1;i<BEADBOARD_SIZE*BEADBOARD_SIZE+1;i++)
-        {
-            tmp[0]=str[i];
-            m_data[index].m_beads[i]=atoi(tmp);
-        }
-    }
-
-    return true;
+    return BoardStore::restore(index,m_data[index]);
 }
 
 bool BoardKeeper::storeAll()
@@ -215,17 +342,25 @@ bool BoardKeeper::storeAll()
     for(int i=0;i<MAX_STORE_BOARD_NUM;i++)
     {
         if(m_data[i].isValid())
-            store(i);
-    }
-    return true;
-}
-bool BoardKeeper::restoreAll()
-{
-    restoreCurIndex();
-    for(int i=0;i<MAX_STORE_BOARD_NUM;i++)
-    {
-        restore(i);
+            BoardStore::store(i,m_data[i]);
     }
     return true;
 }
 
+bool BoardKeeper::restoreAll()
+{
+    restoreCurIndex();
+    CC_RETURN_VAL_IF_FAIL(m_index>=0,false);
+    for(int i=0;i<MAX_STORE_BOARD_NUM;i++)
+    {
+        BoardStore::restore(i,m_data[i]);
+    }
+    return true;
+}
+
+
+void BoardKeeper::invalidAll()
+{
+    BoardStore::invalidAll();
+
+}

@@ -1,9 +1,11 @@
 #include "MainMenuLayer.h"
-#include "CCArray.h"
-#include "VisibleRect.h"
-#include "GameLayer.h"
+//#include "CCArray.h"
+#include "BeadBoardLayer.h"
+#include "BoardKeeper.h"
+#include "SettingLayer.h"
+#include "GameRulerLayer.h"
+#include "StringRes.h"
 
-//#define LINE_SPACE          40
 static const char s_pPathClose[] = "Images/close.png";
 
 
@@ -16,97 +18,66 @@ void MainMenuLayer::runInSceen()
 }
 
 
-void MainMenuLayer::addMenuItem(CCArray* pArrayOfItems,std::string name,SEL_MenuHandler selector)
+MainMenuLayer::MainMenuLayer()
 {
-    CCLabelTTF* label = CCLabelTTF::create(name.c_str(), "Arial", 24);
-    CCMenuItemLabel* pMenuItem = CCMenuItemLabel::create(label, this, selector);
-    pArrayOfItems->addObject(pMenuItem);
+    m_closeMenu=false;
+    m_backMenu=false;
 }
 
-void MainMenuLayer::initMenuList()
+CCArray* MainMenuLayer::prepareMenuList()
 {
-    CC_RETURN_IF_FAIL(!m_pItemMenu);
-
     CCArray* pArrayOfItems = CCArray::create();
-    addMenuItem(pArrayOfItems,"New Game",menu_selector(MainMenuLayer::newGame));
-    addMenuItem(pArrayOfItems,"Continue",menu_selector(MainMenuLayer::continueGame));
-    addMenuItem(pArrayOfItems,"Setting",menu_selector(MainMenuLayer::newGame));
-    addMenuItem(pArrayOfItems,"High Score",menu_selector(MainMenuLayer::newGame));
-    addMenuItem(pArrayOfItems,"Game Rules",menu_selector(MainMenuLayer::newGame));
-    addMenuItem(pArrayOfItems,"Quit",menu_selector(MainMenuLayer::closeCallback));
-    m_pItemMenu = CCMenu::createWithArray(pArrayOfItems);
-    m_pItemMenu->alignItemsVertically();
-
-    CCObject* pObject = NULL;
-    int i=0;
-    CCNode* child = NULL;
-    CCSize s = CCDirector::sharedDirector()->getWinSize();
-
-    CCARRAY_FOREACH(pArrayOfItems, pObject)
-    {
-        if(pObject == NULL)
-            break;
-
-        child = (CCNode*)pObject;
-
-        CCPoint dstPoint = child->getPosition();
-        int offset = (int) (s.width/2 + 50);
-        if( i % 2 == 0)
-            offset = -offset;
-
-        child->setPosition( ccp( dstPoint.x + offset, dstPoint.y) );
-        child->runAction(
-                          CCEaseElasticOut::create(CCMoveBy::create(2, ccp(dstPoint.x - offset,0)), 0.35f)
-                        );
-        i++;
-    }
-
-    addChild(m_pItemMenu);
-    m_pItemMenu->setPosition(ccp(s.width/2, s.height/2));
-    CC_SAFE_RELEASE(pArrayOfItems);
+    const char* newgame_str = StringRes::sharedStringRes()->getString(ID_STRING_NEW_GAME);
+    addMenuItem(pArrayOfItems,newgame_str,menu_selector(MainMenuLayer::newGame));
+    bool hasValidStore = BoardStore::hasValidStore();
+    const char* continues_str = StringRes::sharedStringRes()->getString(ID_STRING_CONTINUE);
+    addMenuItem(pArrayOfItems,continues_str,menu_selector(MainMenuLayer::continueGame),hasValidStore);
+    const char* setting_str = StringRes::sharedStringRes()->getString(ID_STRING_SETTING);
+    addMenuItem(pArrayOfItems,setting_str,menu_selector(MainMenuLayer::setting));
+    
+    const char* game_ruler = StringRes::sharedStringRes()->getString(ID_STRING_GAME_RULER);
+    addMenuItem(pArrayOfItems,game_ruler,menu_selector(MainMenuLayer::gameRuler));
+    const char* quit_str = StringRes::sharedStringRes()->getString(ID_STRING_QUIT);
+    addMenuItem(pArrayOfItems,quit_str,menu_selector(MainMenuLayer::close));
+    return pArrayOfItems;
 
 }
-MainMenuLayer::MainMenuLayer(): m_pItemMenu(NULL)
-{
-
-}
-bool MainMenuLayer::init()
-{
-    CCLog("MainMenuLayer::init");
-    // add close menu
-    CCMenuItemImage *pCloseItem = CCMenuItemImage::create(s_pPathClose, s_pPathClose, this, menu_selector(MainMenuLayer::closeCallback) );
-    CCMenu* pMenu =CCMenu::create(pCloseItem, NULL);
-
-    pMenu->setPosition( CCPointZero );
-    pCloseItem->setPosition(ccp( VisibleRect::right().x - 30, VisibleRect::top().y - 30));
-
-    // add menu items
-    initMenuList();
-    setTouchEnabled(true);
-    addChild(pMenu, 1);
-    return true;
-
-}
-
 MainMenuLayer::~MainMenuLayer()
 {
 
 }
 
+#if (CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID)
+void MainMenuLayer::keyBackClicked()
+{
+    //close(NULL);
+    closeCallback(NULL);
+}
+#endif
+
+
 void MainMenuLayer::newGame(CCObject *pSender)
 {
-    GameLayer::runInSceen(true);
+    BeadBoardLayer::runInSceen(true);
 }
 
 void MainMenuLayer::continueGame(CCObject *pSender)
 {
-    GameLayer::runInSceen(false);
+    BeadBoardLayer::runInSceen(false);
+}
+void MainMenuLayer::setting(CCObject *pSender)
+{
+    SettingLayer::runInSceen();
+}
+void MainMenuLayer::gameRuler(CCObject *pSender)
+{
+    GameRulerLayer::runInSceen();
 }
 
-
-void MainMenuLayer::closeCallback(CCObject * pSender)
+void MainMenuLayer::close(CCObject * pSender)
 {
     CCDirector::sharedDirector()->end();
+
 #if (CC_TARGET_PLATFORM == CC_PLATFORM_IOS)
     exit(0);
 #endif

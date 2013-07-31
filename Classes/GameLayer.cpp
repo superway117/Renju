@@ -1,8 +1,10 @@
 #include "GameLayer.h"
 #include "SimpleAudioEngine.h"
 #include "Bead.h"
+#include "MainMenuLayer.h"
+#include "VisibleRect.h"
 
-USING_NS_CC;
+static const char s_pPathBack[] = "Images/back.png";
 
 GameLayer::GameLayer()
 {
@@ -38,6 +40,14 @@ bool GameLayer::init(bool is_new)
 //init color layer
     CC_RETURN_VAL_IF_FAIL(CCLayerColor::initWithColor( ccc4(255,255,255,255) ),false);
 
+//init back  menu
+    CCMenuItemImage *pBackItem = CCMenuItemImage::create(s_pPathBack, s_pPathBack, this, menu_selector(GameLayer::goBack) );
+    CCMenu* pBackMenu =CCMenu::create(pBackItem, NULL);
+
+    pBackMenu->setPosition( CCPointZero );
+    pBackItem->setPosition(ccp( VisibleRect::right().x - 30, VisibleRect::bottom().y + 30));
+
+    addChild(pBackMenu, 1);
 //add bead board
     CCSize win_size = CCDirector::sharedDirector()->getWinSize();
 
@@ -67,4 +77,10 @@ void GameLayer::ccTouchesEnded(CCSet* touches, CCEvent* event)
 
     CCLog("GameLayer::ccTouchesEnded touch x:%f, y:%f", location.x, location.y);
 
+}
+
+
+void GameLayer::goBack(CCObject *pSender)
+{
+    MainMenuLayer::runInSceen();
 }

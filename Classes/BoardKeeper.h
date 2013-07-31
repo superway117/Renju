@@ -23,10 +23,36 @@ public:
 
 };
 
+class BoardStore
+{
+public:
+    static int getHighScore();
+
+    static void storeHighScore(int score);
+
+    static int getIndex();
+
+    static void storeIndex(int index);
+
+    static bool hasValidStore();
+
+    static bool store(int index, BoardData& data);
+
+    static bool restore(int index,BoardData& data);
+
+    static void invalidAll();
+
+    static void invalid(int index);
+
+};
+
 class BoardKeeper
 {
 public:
     BoardKeeper();
+
+    void init(bool is_new);
+
     bool push(Bead** board,int score);
     bool push(int score);
     bool setBoardData(Bead** board);
@@ -45,6 +71,10 @@ public:
     bool storeAll();
     bool restoreAll();
 
+    void invalidAll();
+
+    bool hasValidStore();
+
 private:
     void nextIndex();
     void prevIndex();
@@ -59,6 +89,12 @@ private:
     void storeCurIndex();
 
     void restoreCurIndex();
+
+    void saveContext();
+
+    void invalidCurrent();
+
+
 
 private:
     int m_hightScore;

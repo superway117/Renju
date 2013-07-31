@@ -1,5 +1,6 @@
 
 #include "DialogLayer.h"
+#include "BoardConfig.h"
 
 DialogLayer::DialogLayer():m_bTouchedMenu(false)
 {
@@ -30,11 +31,17 @@ bool DialogLayer::init(const char* str)
     bool bRet = false;
 
     do {
-        CC_BREAK_IF(!CCLayerColor::initWithColor(ccc4(0, 0, 0, 125)));
+        CC_BREAK_IF(!CCLayerColor::initWithColor(ccc4(0, 0, 0, 100)));
         //CCTimer::timerWithTarget(this,schedule_selector( DialogLayer::timerCB), 2);
+        //setContentSize(CCSize(320,100));
+
+        //bg->setContentSize(CCSize(320,100));
+        //CCSize bg_size = CCDirector::sharedDirector()->getWinSize();
+        //bg->setPosition(ccp(160,50));
+
         schedule(schedule_selector( DialogLayer::timerCB), 2, 0, 0);
         this->initDialog(str);
-
+        //setContentSize(CCSize(320,100));
         bRet = true;
     } while (0);
 
@@ -47,15 +54,19 @@ void DialogLayer::timerCB(float dt)
 
 void DialogLayer::initDialog(const char* str)
 {
-    setContentSize(CCSize(320,100));
-    //CCSize winSize = CCDirector::sharedDirector()->getWinSize();
 
-    CCLabelTTF *label = CCLabelTTF::create(str, "", 20);
-    label->setPosition(ccp(160, 50 ));
-    this->addChild(label);
+    CCSize size = CCDirector::sharedDirector()->getWinSize();
+    CCSprite* bg = CCSprite::create("Images/dialog_bg.png");
+    bg->setPosition(ccp(size.width / 2, size.height / 2));
 
-    this->setTouchEnabled(false);
-    setPosition(ccp(0, 44 ));
+
+    CCLabelTTF *label = CCLabelTTF::create(str, "Marker Felt", NORMAL_FONT_SIZE);
+    label->setPosition(ccp(bg->getContentSize().width / 2, bg->getContentSize().height / 2));
+    bg->addChild(label);
+
+    //setPosition(ccp(0, 44 ));
+
+    addChild(bg);
 #if 0
     CCMenuItemFont *okMenuItem = CCMenuItemFont::create("OK", this, menu_selector(DialogLayer::okMenuItemCallback));
     okMenuItem->setPosition(ccp(winSize.width / 2 - 50, winSize.height / 2 - 50));
@@ -71,14 +82,14 @@ void DialogLayer::initDialog(const char* str)
 
 void DialogLayer::onEnter()
 {
-    CCLayerColor::onEnter();
+    CCLayer::onEnter();
     CCDirector::sharedDirector()->getTouchDispatcher()->addTargetedDelegate(this, -129, true);
 
 }
 
 void DialogLayer::onExit()
 {
-    CCLayerColor::onExit();
+    CCLayer::onExit();
     CCDirector::sharedDirector()->getTouchDispatcher()->removeDelegate(this);
 }
 

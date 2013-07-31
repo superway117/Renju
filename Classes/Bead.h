@@ -11,6 +11,8 @@ typedef enum
     BeadColor3,
     BeadColor4,
     BeadColor5,
+    BeadColor6,
+    BeadColor7,
     BeadColorNum
 }BeadColor;
 
